@@ -6,6 +6,7 @@
 <script>
 "use strict";
 const questions=[
+{title:"Für welches Steuer- oder Förderjahr möchtest du prüfen?",help:"Bei Steuerleistungen können sich Voraussetzungen und Beträge je nach Jahr ändern. Wir geben derzeit nur eine unverbindliche Ersteinschätzung.",options:["2026","2025","2027","Anderes Jahr / noch unsicher"]},
 {title:"Wo wohnst du?",help:"Das Bundesland entscheidet mit, welche regionalen Familienförderungen wir später prüfen.",options:["Niederösterreich","Wien","Steiermark","Anderes Bundesland"]},
 {title:"Wie viele Kinder hast du?",help:"Wir fragen nach Kindern, weil viele Leistungen von Anzahl und Alter abhängen.",options:["Keine","1 Kind","2 Kinder","3 oder mehr"]},
 {title:"Wie alt sind deine Kinder?",help:"Das Alter beeinflusst beispielsweise Familienbeihilfe und Familienbonus. Für diese Demo reicht eine grobe Angabe.",options:["Alle unter 18 Jahren","Mindestens ein Kind ist 18 oder älter","Unterschiedliche Altersgruppen","Keine Kinder"]},
@@ -36,14 +37,14 @@ const el=document.getElementById("screen"),bar=document.getElementById("bar");
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 function speak(t){if(!("speechSynthesis" in window)){alert("Vorlesen wird von diesem Browser nicht unterstützt.");return;}speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang="de-AT";u.rate=.9;speechSynthesis.speak(u)}
 function listen(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){alert("Spracheingabe ist in diesem Browser nicht verfügbar. Bitte tippe auf eine Antwort.");return;}const r=new SR();r.lang="de-AT";r.onresult=e=>{const t=e.results[0][0].transcript.toLowerCase();const i=questions[step].options.findIndex(x=>t.includes(x.toLowerCase())||x.toLowerCase().includes(t));if(i>=0)select(i);else alert("Nicht eindeutig erkannt. Bitte wähle eine Antwort aus.")};r.start()}
-function select(i){answers[step]=i;if(step===1&&i===0){answers[2]=3;answers[8]=5}else if(step===1&&i!==0){if(answers[2]===3)delete answers[2];if(answers[8]===5)delete answers[8]}render()}
-function next(){if(step<questions.length-1){step++;if(answers[1]===0&&(step===2||step===8)){if(step===2)step=3;else step=questions.length}helpOpen=false;render()}else{step=questions.length;render()}}
-function back(){step=Math.max(-1,step-1);if(answers[1]===0&&(step===2||step===8))step=step===8?7:1;helpOpen=false;render()}
+function select(i){answers[step]=i;if(step===2&&i===0){answers[3]=3;answers[9]=5}else if(step===2&&i!==0){if(answers[3]===3)delete answers[3];if(answers[9]===5)delete answers[9]}render()}
+function next(){if(step<questions.length-1){step++;if(answers[2]===0&&(step===3||step===9)){if(step===3)step=4;else step=questions.length}helpOpen=false;render()}else{step=questions.length;render()}}
+function back(){step=Math.max(-1,step-1);if(answers[1]===0&&(step===2||step===8))step=step===9?8:2;helpOpen=false;render()}
 function matchBenefit(v){
  const slug=v.benefits?.slug||"";
- const kids=answers[1]!==0, noe=answers[0]===0, partner=answers[4]===0;
- const jobs=answers[3]===0;
- const housing=answers[6], youngest=answers[8];
+ const kids=answers[2]!==0, noe=answers[1]===0, partner=answers[5]===0;
+ const jobs=answers[4]===0;
+ const housing=answers[7], youngest=answers[9];
  if(["familienbeihilfe","kinderabsetzbetrag","familienbonus-plus","kinderbetreuungsgeld","alleinverdienerabsetzbetrag","alleinerzieherabsetzbetrag","ams-kinderbetreuungsbeihilfe"].includes(slug)&&!kids)return {show:false};
  if(slug==="noe-wohnzuschuss-wohnbeihilfe"&&!noe)return {show:false};
  if(slug==="alleinverdienerabsetzbetrag"&&!partner)return {show:false};
@@ -87,15 +88,18 @@ function assessment(slug,a){
 }
 function assessmentHtml(slug,a){
  const r=assessment(slug,a);
+ if(["familienbonus-plus","alleinverdienerabsetzbetrag","alleinerzieherabsetzbetrag","pendlerpauschale"].includes(slug)&&(answers[0]===2||answers[0]===3))return '<p class="fine"><strong>Regelprüfung: Jahresprüfung ausständig</strong> · Für dieses Jahr sind die steuerlichen Voraussetzungen in der App noch nicht fachlich freigegeben.</p>';
  return '<p class="fine"><strong>Regelprüfung: '+esc(r.level)+'</strong> · '+esc(r.reason)+'</p>';
 }
 function catalogHtml(){
  if(catalogState==="loading")return '<div class="helperbox">Förderkatalog wird geladen …</div>';
  if(catalogState==="error")return '<div class="helperbox">Der Förderkatalog ist derzeit nicht erreichbar. Eine individuelle Vorauswahl ist gerade nicht möglich.</div>';
  const now=new Date().toISOString().slice(0,10);
+ const selectedYear=["2026","2025","2027",null][answers[0]];
+ const yearNote=selectedYear?("Ausgewähltes Prüfjahr: "+selectedYear+". "):"Prüfjahr noch unklar. ";
  const rows=publishedBenefits.filter(v=>v.valid_from<=now&&(!v.valid_to||v.valid_to>=now)).filter(v=>matchBenefit(v).show);
  if(!rows.length)return '<div class="helperbox">Für deine Angaben enthält unser derzeitiger Katalog keine passende Vorauswahl. Das bedeutet nicht, dass du keinen Förderanspruch hast.</div>';
- return '<h2>Deine persönliche Vorauswahl ('+rows.length+')</h2><p class="fine">Anhand deiner Antworten gefiltert – keine Anspruchszusage. Die regelbasierte Ersteinschätzung ist unverbindlich und nicht vollständig. Sie berechnet keine Ansprüche oder Beträge. Deine Antworten bleiben im Browser.</p>'+
+ return '<h2>Deine persönliche Vorauswahl ('+rows.length+')</h2><p class="fine">'+esc(yearNote)+'Anhand deiner Antworten gefiltert – keine Anspruchszusage. Die regelbasierte Ersteinschätzung ist unverbindlich und nicht vollständig. Sie berechnet keine Ansprüche oder Beträge. Deine Antworten bleiben im Browser.</p>'+
  rows.map(v=>{
   const slug=v.benefits?.slug||"", m=matchBenefit(v), a=followupAnswers[slug];
   const follow=m.followup?'<div class="helperbox"><strong>'+esc(m.followup.q)+'</strong>'+m.followup.opts.map((o,i)=>'<button class="option '+(a===i?'selected':'')+'" data-follow="'+esc(slug)+'" data-answer="'+i+'" aria-pressed="'+(a===i)+'">'+esc(o)+'</button>').join('')+(a===undefined?'<p class="fine">Noch offen – weitere Angaben erforderlich.</p>':'<p class="fine">Antwort erfasst – Regelprüfung siehe unten.</p>')+assessmentHtml(slug,a)+'</div>':'<p class="fine">Weitere Voraussetzungen müssen noch geprüft werden.</p>';
