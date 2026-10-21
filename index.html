@@ -54,7 +54,7 @@ const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"
 function speak(t){if(!("speechSynthesis" in window)){alert("Vorlesen wird von diesem Browser nicht unterstützt.");return;}speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang="de-AT";u.rate=.9;speechSynthesis.speak(u)}
 function listen(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){alert("Spracheingabe ist in diesem Browser nicht verfügbar. Bitte tippe auf eine Antwort.");return;}const r=new SR();r.lang="de-AT";r.onresult=e=>{const t=e.results[0][0].transcript.toLowerCase();const i=questions[step].options.findIndex(x=>t.includes(x.toLowerCase())||x.toLowerCase().includes(t));if(i>=0)select(i);else alert("Nicht eindeutig erkannt. Bitte wähle eine Antwort aus.")};r.start()}
 function select(i){answers[step]=i;if(step===2&&i===0){answers[3]=3;answers[9]=5}else if(step===2&&i!==0){if(answers[3]===3)delete answers[3];if(answers[9]===5)delete answers[9]}render()}
-function next(){if(step<questions.length-1){step++;if(answers[2]===0&&(step===3||step===9)){if(step===3)step=4;else step=questions.length}helpOpen=false;render()}else{step=questions.length;render()}}
+function next(){if(step<questions.length-1){step++;if(answers[2]===0&&step===3)step=4;if(answers[2]===0&&step===9)step=10;helpOpen=false;render()}else{step=questions.length;render()}}
 function back(){step=Math.max(-1,step-1);if(answers[2]===0&&step===3)step=2;if(answers[2]===0&&step===9)step=8;helpOpen=false;render()}
 function matchBenefit(v){
  const slug=v.benefits?.slug||"";
