@@ -16,7 +16,8 @@ const questions=[
 let step=-1,answers=[],helpOpen=false,voice=false;
 const API="https://dihnhlkdpblwtuyomvuh.supabase.co/rest/v1";
 const PUBLIC_KEY="sb_publishable_TJCgL8iPQCNKUk3mT4jMEw_PBZ5UfhM";
-let publishedBenefits=[];\nlet catalogState="loading";
+let publishedBenefits=[];
+let catalogState="loading";
 async function loadCatalog(){try{const r=await fetch(API+"/benefit_versions?select=id,valid_from,valid_to,summary,benefits(title,category,jurisdiction),benefit_sources(official_url,source_title)&status=eq.published&order=valid_from.desc",{headers:{"apikey":PUBLIC_KEY}});if(!r.ok)throw Error("HTTP "+r.status);publishedBenefits=await r.json();catalogState="ready";if(step===questions.length)render();}catch(e){publishedBenefits=[];catalogState="error";if(step===questions.length)render();console.warn("Förderkatalog derzeit nicht verfügbar",e)}}
 loadCatalog();
 const el=document.getElementById("screen"),bar=document.getElementById("bar");
