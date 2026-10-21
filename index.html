@@ -26,7 +26,7 @@ let applicationProgress={};
 async function loadApplicationGuides(){try{const r=await fetch(API+"/benefit_application_guides?select=benefit_slug,tax_year,title,procedure_type,official_url,steps,required_documents&status=eq.published",{headers:{"apikey":PUBLIC_KEY}});if(!r.ok)return;applicationGuides=await r.json();if(step===questions.length)render()}catch(e){console.warn("Antragsinformationen nicht verfügbar",e)}}
 function applicationGuideHtml(slug){
  const year=[2026,2025,2027,null][answers[0]];
- const g=applicationGuides.find(x=>x.benefit_slug===slug&&(x.tax_year===null||x.tax_year===year));
+ const g=applicationGuides.find(x=>x.benefit_slug===slug&&x.tax_year===year)||applicationGuides.find(x=>x.benefit_slug===slug&&x.tax_year===null);
  if(!g)return '<p class="fine">Antragsassistent in Vorbereitung · noch keine geprüfte Anleitung verfügbar.</p>';
  const key=slug+"-"+(year||"all"), checked=applicationProgress[key]||[];
  return '<div class="helperbox"><strong>Antrag: '+esc(g.title)+'</strong><p><a target="_blank" rel="noopener noreferrer" href="'+esc(g.official_url)+'">Offizielle Antragsseite öffnen ↗</a></p>'+
@@ -39,7 +39,7 @@ let sourceStatuses={};
 let sourceStatusState="loading";
 let followupAnswers={};
 let ruleGuidance=[];
-function activeGuidance(slug){const year=[2026,2025,2027,null][answers[0]];return year?ruleGuidance.find(x=>x.slug===slug&&(x.tax_year===year||x.tax_year===null))||null:null;}
+function activeGuidance(slug){const year=[2026,2025,2027,null][answers[0]];return year?ruleGuidance.find(x=>x.slug===slug&&x.tax_year===year)||ruleGuidance.find(x=>x.slug===slug&&x.tax_year===null)||null:null;}
 async function loadRuleGuidance(){try{const r=await fetch(API+"/benefit_rule_guidance?select=slug,tax_year,question,options,assessments,official_source_url,reviewed_at&active=eq.true&reviewed_at=not.is.null&official_source_url=not.is.null",{headers:{"apikey":PUBLIC_KEY}});if(!r.ok)return;const data=await r.json();ruleGuidance=data.filter(x=>Array.isArray(x.options)&&x.options.length>0&&x.assessments&&typeof x.assessments==="object");if(step===questions.length)render()}catch(e){console.warn("Regelhinweise vorübergehend nicht verfügbar",e)}}
 async function loadSourceStatuses(){try{const r=await fetch(API+"/rpc/published_source_status",{method:"POST",headers:{"apikey":PUBLIC_KEY,"Content-Type":"application/json"},body:"{}"});if(!r.ok)throw Error("HTTP "+r.status);const rows=await r.json();sourceStatuses=Object.fromEntries(rows.map(x=>[x.official_url,x]));sourceStatusState="ready";if(step===questions.length)render();}catch(e){sourceStatusState="error";console.warn("Prüfstatus nicht verfügbar",e);if(step===questions.length)render()}}
 function sourceStatusHtml(url){const s=sourceStatuses[url];if(sourceStatusState!=="ready"||!s||!s.last_checked_at)return '<span class="fine">Quellenprüfung noch nicht bestätigt</span>';const d=new Date(s.last_checked_at);const date=isNaN(d.getTime())?"Datum unbekannt":d.toLocaleDateString("de-AT",{day:"2-digit",month:"2-digit",year:"numeric"});return '<span class="fine">'+(s.needs_review?"⚠️ Quellenänderung erkannt – fachliche Prüfung ausständig":s.last_result==="unavailable"?"⚠️ Quelle zuletzt nicht erreichbar":s.last_result==="changed"?"⚠️ Änderung erkannt": "✓ Quelle technisch abgerufen")+ " · "+esc(date)+"</span>"}
@@ -54,7 +54,7 @@ function speak(t){if(!("speechSynthesis" in window)){alert("Vorlesen wird von di
 function listen(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){alert("Spracheingabe ist in diesem Browser nicht verfügbar. Bitte tippe auf eine Antwort.");return;}const r=new SR();r.lang="de-AT";r.onresult=e=>{const t=e.results[0][0].transcript.toLowerCase();const i=questions[step].options.findIndex(x=>t.includes(x.toLowerCase())||x.toLowerCase().includes(t));if(i>=0)select(i);else alert("Nicht eindeutig erkannt. Bitte wähle eine Antwort aus.")};r.start()}
 function select(i){answers[step]=i;if(step===2&&i===0){answers[3]=3;answers[9]=5}else if(step===2&&i!==0){if(answers[3]===3)delete answers[3];if(answers[9]===5)delete answers[9]}render()}
 function next(){if(step<questions.length-1){step++;if(answers[2]===0&&(step===3||step===9)){if(step===3)step=4;else step=questions.length}helpOpen=false;render()}else{step=questions.length;render()}}
-function back(){step=Math.max(-1,step-1);if(answers[1]===0&&(step===2||step===8))step=step===9?8:2;helpOpen=false;render()}
+function back(){step=Math.max(-1,step-1);if(answers[2]===0&&step===3)step=2;if(answers[2]===0&&step===9)step=8;helpOpen=false;render()}
 function matchBenefit(v){
  const slug=v.benefits?.slug||"";
  const kids=answers[2]!==0, noe=answers[1]===0, partner=answers[5]===0;
