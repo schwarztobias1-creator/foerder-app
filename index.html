@@ -57,7 +57,7 @@ function next(){if(step<questions.length-1){step++;if(answers[2]===0&&(step===3|
 function back(){step=Math.max(-1,step-1);if(answers[2]===0&&step===3)step=2;if(answers[2]===0&&step===9)step=8;helpOpen=false;render()}
 function matchBenefit(v){
  const slug=v.benefits?.slug||"";
- const kids=answers[2]!==0, noe=answers[1]===0, partner=answers[5]===0;
+ const kids=answers[2]>0&&answers[2]<=3, noe=answers[1]===0, partner=answers[5]===0;
  const jobs=answers[4]===0;
  const housing=answers[7], youngest=answers[9];
  if(["familienbeihilfe","kinderabsetzbetrag","familienbonus-plus","kinderbetreuungsgeld","alleinverdienerabsetzbetrag","alleinerzieherabsetzbetrag","ams-kinderbetreuungsbeihilfe"].includes(slug)&&!kids)return {show:false};
@@ -106,6 +106,18 @@ function assessmentHtml(slug,a){
  if(["familienbonus-plus","alleinverdienerabsetzbetrag","alleinerzieherabsetzbetrag","pendlerpauschale"].includes(slug)&&(answers[0]===2||answers[0]===3))return '<p class="fine"><strong>Regelprüfung: Jahresprüfung ausständig</strong> · Für dieses Jahr sind die steuerlichen Voraussetzungen in der App noch nicht fachlich freigegeben.</p>';
  return '<p class="fine"><strong>Regelprüfung: '+esc(r.level)+'</strong> · '+esc(r.reason)+'</p>';
 }
+function broaderSupportHtml(){
+ const groups=[
+ ["Arbeitssuche & Weiterbildung","Arbeitslosengeld, Notstandshilfe und AMS-Förderungen prüfen","https://www.ams.at/arbeitsuchende"],
+ ["Behinderung & Pflege","Pflegegeld, Hilfsmittel, Mobilität und Wohnraumanpassung prüfen","https://www.oesterreich.gv.at/de/themen/menschen_mit_behinderungen"],
+ ["Wohnen & Energie","Wohnbeihilfe, Sanierung und regionale Programme recherchieren","https://transparenzportal.gv.at/"],
+ ["Studium & Ausbildung","Studienbeihilfe, Stipendien und Ausbildungsförderungen prüfen","https://www.stipendium.at/"],
+ ["Pension & geringes Einkommen","Ausgleichszulage und weitere soziale Leistungen prüfen","https://www.oesterreich.gv.at/"],
+ ["Steuern & Erwerbstätigkeit","Arbeitnehmerveranlagung, Absetzbeträge und Werbungskosten prüfen","https://www.bmf.gv.at/"],
+ ["Unternehmen & Gründung","Förderungen für Selbstständige und Unternehmen recherchieren","https://www.aws.at/"]
+ ];
+ return '<div class="helperbox"><strong>Weitere Förderbereiche entdecken</strong><p class="fine">Noch keine persönliche Anspruchsprüfung für diese Bereiche. Die Links führen zu offiziellen Einstiegspunkten.</p>'+groups.map(x=>'<p><strong>'+esc(x[0])+'</strong><span class="fine" style="display:block">'+esc(x[1])+'</span><a href="'+esc(x[2])+'" target="_blank" rel="noopener noreferrer">Offizielle Stelle öffnen ↗</a></p>').join('')+'</div>';
+}
 function catalogHtml(){
  if(catalogState==="loading")return '<div class="helperbox">Förderkatalog wird geladen …</div>';
  if(catalogState==="error")return '<div class="helperbox">Der Förderkatalog ist derzeit nicht erreichbar. Eine individuelle Vorauswahl ist gerade nicht möglich.</div>';
@@ -113,7 +125,7 @@ function catalogHtml(){
  const selectedYear=["2026","2025","2027",null][answers[0]];
  const yearNote=selectedYear?("Ausgewähltes Prüfjahr: "+selectedYear+". "):"Prüfjahr noch unklar. ";
  const rows=publishedBenefits.filter(v=>v.valid_from<=now&&(!v.valid_to||v.valid_to>=now)).filter(v=>matchBenefit(v).show);
- if(!rows.length)return '<div class="helperbox">Für deine Angaben enthält unser derzeitiger Katalog keine passende Vorauswahl. Das bedeutet nicht, dass du keinen Förderanspruch hast.</div>';
+ if(!rows.length)return '<div class="helperbox">Für deine Angaben enthält unser derzeitiger Katalog keine passende Vorauswahl. Das bedeutet nicht, dass du keinen Förderanspruch hast.</div>'+broaderSupportHtml();
  return '<h2>Deine persönliche Vorauswahl ('+rows.length+')</h2><p class="fine">'+esc(yearNote)+'Anhand deiner Antworten gefiltert – keine Anspruchszusage. Die regelbasierte Ersteinschätzung ist unverbindlich und nicht vollständig. Sie berechnet keine Ansprüche oder Beträge. Deine Antworten bleiben im Browser.</p>'+
  rows.map(v=>{
   const slug=v.benefits?.slug||"", m=matchBenefit(v), a=followupAnswers[slug];
