@@ -20,9 +20,10 @@ let publishedBenefits=[];
 let catalogState="loading";
 let sourceStatuses={};
 let sourceStatusState="loading";
+let followupAnswers={};
 async function loadSourceStatuses(){try{const r=await fetch(API+"/rpc/published_source_status",{method:"POST",headers:{"apikey":PUBLIC_KEY,"Content-Type":"application/json"},body:"{}"});if(!r.ok)throw Error("HTTP "+r.status);const rows=await r.json();sourceStatuses=Object.fromEntries(rows.map(x=>[x.official_url,x]));sourceStatusState="ready";if(step===questions.length)render();}catch(e){sourceStatusState="error";console.warn("Prüfstatus nicht verfügbar",e);if(step===questions.length)render()}}
 function sourceStatusHtml(url){const s=sourceStatuses[url];if(sourceStatusState!=="ready"||!s||!s.last_checked_at)return '<span class="fine">Quellenprüfung noch nicht bestätigt</span>';const d=new Date(s.last_checked_at);const date=isNaN(d.getTime())?"Datum unbekannt":d.toLocaleDateString("de-AT",{day:"2-digit",month:"2-digit",year:"numeric"});return '<span class="fine">'+(s.needs_review?"⚠️ Quellenänderung erkannt – fachliche Prüfung ausständig":s.last_result==="unavailable"?"⚠️ Quelle zuletzt nicht erreichbar":s.last_result==="changed"?"⚠️ Änderung erkannt": "✓ Quelle technisch abgerufen")+ " · "+esc(date)+"</span>"}
-async function loadCatalog(){try{const r=await fetch(API+"/benefit_versions?select=id,valid_from,valid_to,summary,benefits(title,category,jurisdiction),benefit_sources(official_url,source_title)&status=eq.published&order=valid_from.desc",{headers:{"apikey":PUBLIC_KEY}});if(!r.ok)throw Error("HTTP "+r.status);publishedBenefits=await r.json();catalogState="ready";if(step===questions.length)render();}catch(e){publishedBenefits=[];catalogState="error";if(step===questions.length)render();console.warn("Förderkatalog derzeit nicht verfügbar",e)}}
+async function loadCatalog(){try{const r=await fetch(API+"/benefit_versions?select=id,valid_from,valid_to,summary,benefits(slug,title,category,jurisdiction),benefit_sources(official_url,source_title)&status=eq.published&order=valid_from.desc",{headers:{"apikey":PUBLIC_KEY}});if(!r.ok)throw Error("HTTP "+r.status);publishedBenefits=await r.json();catalogState="ready";if(step===questions.length)render();}catch(e){publishedBenefits=[];catalogState="error";if(step===questions.length)render();console.warn("Förderkatalog derzeit nicht verfügbar",e)}}
 loadCatalog();
 loadSourceStatuses();
 const el=document.getElementById("screen"),bar=document.getElementById("bar");
@@ -32,18 +33,47 @@ function listen(){const SR=window.SpeechRecognition||window.webkitSpeechRecognit
 function select(i){answers[step]=i;render()}
 function next(){if(step<questions.length-1){step++;helpOpen=false;render()}else{step=questions.length;render()}}
 function back(){step=Math.max(-1,step-1);helpOpen=false;render()}
-function catalogHtml(){
- if(catalogState==="loading")return '<div class="helperbox">Geprüfter Förderkatalog wird geladen …</div>';
- if(catalogState==="error")return '<div class="helperbox">Der Förderkatalog ist derzeit nicht erreichbar. Die angezeigten Beispiele sind nicht verifiziert.</div>';
- const now=new Date().toISOString().slice(0,10);
- const rows=publishedBenefits.filter(v=>v.valid_from<=now&&(!v.valid_to||v.valid_to>=now));
- if(!rows.length)return '<div class="helperbox">Derzeit sind noch keine fachlich freigegebenen, aktuell gültigen Förderdatensätze veröffentlicht.</div>';
- return '<h2>Förderinformationen aus dem Katalog</h2><p class="fine">Der Prüfstatus zeigt nur, wann eine offizielle Webseite technisch abgerufen wurde. Er ist keine fachliche Bestätigung von Förderbeträgen, Voraussetzungen oder Ansprüchen.</p>'+rows.map(v=>'<div class="result"><strong>'+esc(v.benefits?.title||"Förderung")+'</strong><p>'+esc(v.summary)+'</p><span class="fine">Gültig ab '+esc(v.valid_from)+(v.valid_to?' bis '+esc(v.valid_to):'')+'</span>'+((v.benefit_sources||[]).map(q=>'<p><a target="_blank" rel="noopener noreferrer" href="'+esc(q.official_url)+'">'+esc(q.source_title)+'</a></p><p>'+sourceStatusHtml(q.official_url)+'</p>').join(''))+'</div>').join('');
+function matchBenefit(v){
+ const slug=v.benefits?.slug||"";
+ const kids=answers[1]!==0, noe=answers[0]===0, partner=answers[4]===0;
+ const jobs=[0,1].includes(answers[3]);
+ if(["familienbeihilfe","kinderabsetzbetrag","familienbonus-plus","kinderbetreuungsgeld","alleinverdienerabsetzbetrag","alleinerzieherabsetzbetrag","ams-kinderbetreuungsbeihilfe"].includes(slug)&&!kids)return {show:false};
+ if(slug==="noe-wohnzuschuss-wohnbeihilfe"&&!noe)return {show:false};
+ if(slug==="alleinverdienerabsetzbetrag"&&!partner)return {show:false};
+ if(slug==="alleinerzieherabsetzbetrag"&&partner)return {show:false};
+ if(slug==="pendlerpauschale"&&!jobs)return {show:false};
+ if(slug==="ams-kinderbetreuungsbeihilfe"&&answers[3]!==3&&answers[3]!==2)return {show:false};
+ const followups={
+ "familienbeihilfe":{q:"Erhältst du bereits Familienbeihilfe für deine Kinder?",opts:["Ja","Nein","Unsicher"]},
+ "familienbonus-plus":{q:"Zahlst du in Österreich Lohn- oder Einkommensteuer?",opts:["Ja","Nein","Unsicher"]},
+ "kinderbetreuungsgeld":{q:"Ist eines deiner Kinder noch im Kleinkindalter?",opts:["Ja","Nein","Unsicher"]},
+ "pendlerpauschale":{q:"Wie weit ist dein üblicher Arbeitsweg (einfache Strecke)?",opts:["Unter 2 km","2 bis 19 km","20 bis 39 km","40 km oder mehr","Unsicher"]},
+ "noe-wohnzuschuss-wohnbeihilfe":{q:"Wohnst du in einer geförderten Wohnung in Niederösterreich?",opts:["Ja","Nein","Unsicher"]},
+ "alleinverdienerabsetzbetrag":{q:"Hat deine Partnerperson nur geringe Einkünfte?",opts:["Ja","Nein","Unsicher"]},
+ "alleinerzieherabsetzbetrag":{q:"Lebst du seit mehr als sechs Monaten ohne Partnerperson im Haushalt?",opts:["Ja","Nein","Unsicher"]},
+ "ams-kinderbetreuungsbeihilfe":{q:"Brauchst du Unterstützung bei den Kinderbetreuungskosten für Arbeit oder Ausbildung?",opts:["Ja","Nein","Unsicher"]}
+ };
+ return {show:true,followup:followups[slug]||null};
 }
+function catalogHtml(){
+ if(catalogState==="loading")return '<div class="helperbox">Förderkatalog wird geladen …</div>';
+ if(catalogState==="error")return '<div class="helperbox">Der Förderkatalog ist derzeit nicht erreichbar. Eine individuelle Vorauswahl ist gerade nicht möglich.</div>';
+ const now=new Date().toISOString().slice(0,10);
+ const rows=publishedBenefits.filter(v=>v.valid_from<=now&&(!v.valid_to||v.valid_to>=now)).filter(v=>matchBenefit(v).show);
+ if(!rows.length)return '<div class="helperbox">Für deine Angaben enthält unser derzeitiger Katalog keine passende Vorauswahl. Das bedeutet nicht, dass du keinen Förderanspruch hast.</div>';
+ return '<h2>Deine persönliche Vorauswahl ('+rows.length+')</h2><p class="fine">Anhand deiner Antworten gefiltert – keine Anspruchszusage. Die Zusatzfragen helfen bei der weiteren Eingrenzung. Förderbeträge und Regeln sind nicht abschließend fachlich geprüft.</p>'+
+ rows.map(v=>{
+  const slug=v.benefits?.slug||"", m=matchBenefit(v), a=followupAnswers[slug];
+  const follow=m.followup?'<div class="helperbox"><strong>'+esc(m.followup.q)+'</strong>'+m.followup.opts.map((o,i)=>'<button class="option '+(a===i?'selected':'')+'" data-follow="'+esc(slug)+'" data-answer="'+i+'" aria-pressed="'+(a===i)+'">'+esc(o)+'</button>').join('')+(a===undefined?'<p class="fine">Noch offen – weitere Angaben erforderlich.</p>':a===1?'<p class="fine">Deine Antwort kann die Fördermöglichkeit einschränken. Bitte die offiziellen Voraussetzungen prüfen.</p>':'<p class="fine">Antwort notiert. Für eine verlässliche Beurteilung fehlen weitere Angaben.</p>')+'</div>':'<p class="fine">Weitere Voraussetzungen müssen noch geprüft werden.</p>';
+  return '<div class="result"><strong>'+esc(v.benefits?.title||"Förderung")+'</strong><p>'+esc(v.summary)+'</p>'+follow+'<p class="fine">Katalogzeitraum: '+esc(v.valid_from)+(v.valid_to?' bis '+esc(v.valid_to):'')+'</p>'+((v.benefit_sources||[]).map(q=>'<p><a target="_blank" rel="noopener noreferrer" href="'+esc(q.official_url)+'">'+esc(q.source_title)+'</a></p><p>'+sourceStatusHtml(q.official_url)+'</p>').join(''))+'</div>';
+ }).join('');
+}
+function wireFollowups(){el.querySelectorAll("[data-follow]").forEach(b=>b.onclick=()=>{followupAnswers[b.dataset.follow]=Number(b.dataset.answer);render()})}
+
 window.startFoerderCheck=()=>{step=0;render()};
 function render(){bar.style.width=(step<0?0:step>=questions.length?100:Math.round((step+1)/questions.length*100))+"%";
 if(step===-1){el.innerHTML='<div class="eyebrow">Dein Geld. Deine Möglichkeiten.</div><h1>Welche Förderungen stehen dir zu?</h1><p>Finde mit wenigen einfachen Fragen heraus, welche Familienleistungen du genauer prüfen solltest.</p><div class="helperbox">🔒 Dieser erste Prototyp speichert nichts und verwendet noch keine echten Förderberechnungen.</div><button class="primary" id="start">Kostenlosen Check starten →</button><div class="actions"><button class="secondary" id="read">🔊 Vorlesen</button></div>';document.getElementById("start").onclick=next;document.getElementById("read").onclick=()=>speak("Welche Förderungen stehen dir zu? Finde es mit wenigen Fragen heraus.");return}
-if(step===questions.length){const children=answers[1]!==0;const bonus=children&&answers[5]!==0;el.innerHTML='<div class="eyebrow">Dein erster Überblick</div><h1>Diese Leistungen solltest du prüfen</h1><p>Das sind <b>Hinweise</b>, keine geprüften Ansprüche oder zugesagten Geldbeträge.</p>'+ (children?'<div class="result"><strong>Familienbeihilfe</strong>Prüfen, ob du sie bereits erhältst und ob die Voraussetzungen erfüllt sind.</div><div class="result"><strong>Familienbonus Plus</strong>'+(bonus?'Prüfen, ob du ihn für relevante Steuerjahre beantragen kannst.':'Prüfen, ob er bereits korrekt berücksichtigt wurde.')+'</div><div class="result"><strong>Alleinverdiener- / Alleinerzieherabsetzbetrag</strong>Kann je nach Partnerschaft, Einkünften und Steuerjahr relevant sein.</div>':'<div class="result"><strong>Familienleistungen</strong>Du hast keine Kinder angegeben. Für diesen ersten Familien-Prototyp gibt es keine passende Vorauswahl.</div>')+catalogHtml()+'<div class="helperbox">Die Beispielhinweise sind keine amtlich geprüften Ansprüche. Der verifizierte Förderkatalog wird separat aus der Datenbank geladen.</div><button class="primary" id="restart">Erneut prüfen</button>';document.getElementById("restart").onclick=()=>{step=-1;answers=[];render()};return}
+if(step===questions.length){el.innerHTML='<div class="eyebrow">Dein erster Überblick</div><h1>Förderungen, die du prüfen solltest</h1><p>Wir zeigen dir nur Katalogeinträge, die nach deinen bisherigen Angaben relevant sein könnten. Deine Antworten werden nicht gespeichert.</p>'+catalogHtml()+'<div class="helperbox">Die Auswahl ist eine unverbindliche Orientierung. Eine individuelle Berechnung oder rechtsverbindliche Anspruchsprüfung findet noch nicht statt.</div><button class="primary" id="restart">Erneut prüfen</button>';wireFollowups();document.getElementById("restart").onclick=()=>{step=-1;answers=[];followupAnswers={};render()};return}
 const q=questions[step];el.innerHTML='<div class="eyebrow">Frage '+(step+1)+' von '+questions.length+'</div><h1>'+esc(q.title)+'</h1><p>Wähle einfach die passende Antwort.</p><div id="options">'+q.options.map((o,i)=>'<button class="option '+(answers[step]===i?'selected':'')+'" data-i="'+i+'" aria-pressed="'+(answers[step]===i)+'">'+esc(o)+'</button>').join("")+'</div><div class="actions"><button class="secondary" id="back">← Zurück</button><button class="secondary" id="read">🔊 Vorlesen</button><button class="secondary" id="mic">🎙 Antworten</button></div><div class="helper"><button class="secondary" id="help">✨ Frage erklären</button>'+(helpOpen?'<div class="helperbox">'+esc(q.help)+'<p class="fine">Noch kein KI-Chat: Diese Erklärung ist ein sicherer Demo-Text.</p></div>':'')+'</div><button class="primary" id="next" '+(answers[step]===undefined?'disabled':'')+'>Weiter →</button>';
 el.querySelectorAll("[data-i]").forEach(b=>b.onclick=()=>select(Number(b.dataset.i)));document.getElementById("back").onclick=back;document.getElementById("read").onclick=()=>speak(q.title+". "+q.options.join(". "));document.getElementById("mic").onclick=listen;document.getElementById("help").onclick=()=>{helpOpen=!helpOpen;render()};document.getElementById("next").onclick=next}
 try{render()}catch(error){console.error("Förderfinder Startfehler",error);document.getElementById("screen").insertAdjacentHTML("beforeend",'<p class="fine">Die interaktive Funktion konnte nicht gestartet werden. Bitte die Seite neu laden.</p>')}
