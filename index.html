@@ -7,10 +7,10 @@
 "use strict";
 const questions=[
 {title:"Für welches Steuer- oder Förderjahr möchtest du prüfen?",help:"Bei Steuerleistungen können sich Voraussetzungen und Beträge je nach Jahr ändern. Wir geben derzeit nur eine unverbindliche Ersteinschätzung.",options:["2026","2025","2027","Anderes Jahr / noch unsicher"]},
-{title:"Wo wohnst du?",help:"Das Bundesland entscheidet mit, welche regionalen Familienförderungen wir später prüfen.",options:["Niederösterreich","Wien","Steiermark","Anderes Bundesland"]},
+{title:"Wo wohnst du?",help:"Das Bundesland entscheidet mit, welche regionalen Familienförderungen wir später prüfen.",options:["Niederösterreich","Wien","Steiermark","Burgenland","Oberösterreich","Salzburg","Tirol","Vorarlberg","Kärnten"]},
 {title:"Wie viele Kinder hast du?",help:"Wir fragen nach Kindern, weil viele Leistungen von Anzahl und Alter abhängen.",options:["Keine","1 Kind","2 Kinder","3 oder mehr"]},
 {title:"Wie alt sind deine Kinder?",help:"Das Alter beeinflusst beispielsweise Familienbeihilfe und Familienbonus. Für diese Demo reicht eine grobe Angabe.",options:["Alle unter 18 Jahren","Mindestens ein Kind ist 18 oder älter","Unterschiedliche Altersgruppen","Keine Kinder"]},
-{title:"Wie ist deine Arbeitssituation?",help:"Damit können wir später steuerliche Förderungen und mögliche Unterstützungen passend auswählen.",options:["Angestellt","Selbstständig","In Karenz","Arbeitslos","Andere Situation"]},
+{title:"Wie ist deine Arbeitssituation?",help:"Damit können wir später steuerliche Förderungen und mögliche Unterstützungen passend auswählen.",options:["Angestellt","Selbstständig","In Karenz","Arbeitslos","Pension","Studium / Ausbildung","Andere Situation"]},
 {title:"Lebst du mit einer Partnerperson zusammen?",help:"Manche steuerlichen Absetzbeträge hängen auch von der Lebens- und Einkommenssituation deiner Partnerperson ab.",options:["Ja","Nein","Möchte ich nicht angeben"]},
 {title:"Wurde der Familienbonus Plus schon beantragt?",help:"Der Familienbonus Plus ist eine Steuerentlastung, keine automatische Auszahlung. Ob und wie viel möglich ist, hängt unter anderem von Steuerjahr und Einkommensteuer ab.",options:["Ja, bereits beantragt","Nein, noch nicht beantragt","Ich bin mir nicht sicher"]},
 {title:"Wie wohnst du derzeit?",help:"Einige Förderungen setzen eine bestimmte Wohnform oder ein gefördertes Objekt voraus.",options:["Miete","Eigentumswohnung","Eigenes Haus","Bei Familie / andere Wohnform","Möchte ich nicht angeben"]},
@@ -109,15 +109,18 @@ function assessmentHtml(slug,a){
 }
 function broaderSupportHtml(){
  const groups=[
- ["Arbeitssuche & Weiterbildung","Arbeitslosengeld, Notstandshilfe und AMS-Förderungen prüfen","https://www.ams.at/arbeitsuchende"],
- ["Behinderung & Pflege","Pflegegeld, Hilfsmittel, Mobilität und Wohnraumanpassung prüfen","https://www.oesterreich.gv.at/de/themen/menschen_mit_behinderungen"],
- ["Wohnen & Energie","Wohnbeihilfe, Sanierung und regionale Programme recherchieren","https://transparenzportal.gv.at/"],
- ["Studium & Ausbildung","Studienbeihilfe, Stipendien und Ausbildungsförderungen prüfen","https://www.stipendium.at/"],
- ["Pension & geringes Einkommen","Ausgleichszulage und weitere soziale Leistungen prüfen","https://www.oesterreich.gv.at/"],
- ["Steuern & Erwerbstätigkeit","Arbeitnehmerveranlagung, Absetzbeträge und Werbungskosten prüfen","https://www.bmf.gv.at/"],
- ["Unternehmen & Gründung","Förderungen für Selbstständige und Unternehmen recherchieren","https://www.aws.at/"]
+ {name:"Arbeitssuche & Weiterbildung",desc:"Arbeitslosengeld, Notstandshilfe, Umschulung und Qualifizierung",url:"https://www.ams.at/arbeitsuchende",tag:"work"},
+ {name:"Behinderung & Pflege",desc:"Pflegegeld, Behindertenpass, Hilfsmittel und Unterstützung",url:"https://www.sozialministeriumservice.gv.at/",tag:"care"},
+ {name:"Wohnen & Energie",desc:"Wohnbeihilfe, Wohnzuschuss, Sanierung und Energieförderungen",url:"https://transparenzportal.gv.at/",tag:"housing"},
+ {name:"Studium & Ausbildung",desc:"Studienbeihilfe, Selbsterhalterstipendium und Förderungen",url:"https://www.stipendium.at/",tag:"study"},
+ {name:"Pension & geringes Einkommen",desc:"Ausgleichszulage und soziale Unterstützung",url:"https://www.pv.at/",tag:"pension"},
+ {name:"Steuern & Erwerbstätigkeit",desc:"Arbeitnehmerveranlagung, Absetzbeträge und Werbungskosten",url:"https://www.bmf.gv.at/",tag:"tax"},
+ {name:"Unternehmen & Gründung",desc:"Gründungsförderung, Investitionen und Beratung",url:"https://www.aws.at/",tag:"business"},
+ {name:"Familie & Kinderbetreuung",desc:"Familienleistungen und Kinderbetreuungsangebote",url:"https://www.oesterreich.gv.at/",tag:"family"}
  ];
- const disability=answers[10]===0||answers[10]===1;const employment=answers[4]===3;const prioritized=groups.filter(x=>(disability&&x[0]==="Behinderung & Pflege")||(employment&&x[0]==="Arbeitssuche & Weiterbildung"));const ordered=[...prioritized,...groups.filter(x=>!prioritized.includes(x))];return '<div class="helperbox"><strong>Weitere Förderbereiche entdecken</strong><p class="fine">Noch keine persönliche Anspruchsprüfung für diese Bereiche. Die Links führen zu offiziellen Einstiegspunkten.</p>'+ordered.map(x=>'<p><strong>'+esc(x[0])+'</strong><span class="fine" style="display:block">'+esc(x[1])+'</span><a href="'+esc(x[2])+'" target="_blank" rel="noopener noreferrer">Offizielle Stelle öffnen ↗</a></p>').join('')+'</div>';
+ const priority={work:answers[4]===3,care:answers[10]===0||answers[10]===1,study:answers[4]===5,pension:answers[4]===4,business:answers[4]===1,family:answers[2]>0,housing:answers[7]===0||answers[7]===1||answers[7]===2,tax:answers[4]===0};
+ const ordered=[...groups].sort((a,b)=>Number(!!priority[b.tag])-Number(!!priority[a.tag]));
+ return '<div class="helperbox"><strong>Weitere Förderbereiche entdecken</strong><p class="fine">Persönlich sortierte Recherchebereiche – noch keine Anspruchsprüfung. Offizielle Einstiegspunkte statt ungeprüfter Förderversprechen.</p>'+ordered.map(x=>'<p><strong>'+esc(x.name)+'</strong><span class="fine" style="display:block">'+esc(x.desc)+'</span><a href="'+esc(x.url)+'" target="_blank" rel="noopener noreferrer">Offizielle Stelle öffnen ↗</a></p>').join('')+'</div>';
 }
 function catalogHtml(){
  if(catalogState==="loading")return '<div class="helperbox">Förderkatalog wird geladen …</div>';
