@@ -39,7 +39,7 @@ function back(){step=Math.max(-1,step-1);helpOpen=false;render()}
 function matchBenefit(v){
  const slug=v.benefits?.slug||"";
  const kids=answers[1]!==0, noe=answers[0]===0, partner=answers[4]===0;
- const jobs=[0,1].includes(answers[3]);
+ const jobs=answers[3]===0;
  const housing=answers[6], youngest=answers[8];
  if(["familienbeihilfe","kinderabsetzbetrag","familienbonus-plus","kinderbetreuungsgeld","alleinverdienerabsetzbetrag","alleinerzieherabsetzbetrag","ams-kinderbetreuungsbeihilfe"].includes(slug)&&!kids)return {show:false};
  if(slug==="noe-wohnzuschuss-wohnbeihilfe"&&!noe)return {show:false};
@@ -47,12 +47,12 @@ function matchBenefit(v){
  if(slug==="alleinerzieherabsetzbetrag"&&partner)return {show:false};
  if(slug==="pendlerpauschale"&&!jobs)return {show:false};
  if(slug==="kinderbetreuungsgeld"&&youngest>=3&&youngest<=4)return {show:false};
- if(slug==="ams-kinderbetreuungsbeihilfe"&&answers[3]!==3&&answers[3]!==2)return {show:false};
+ 
  const followups={
  "familienbeihilfe":{q:"Erhältst du bereits Familienbeihilfe für deine Kinder?",opts:["Ja","Nein","Unsicher"]},
  "familienbonus-plus":{q:"Zahlst du in Österreich Lohn- oder Einkommensteuer?",opts:["Ja","Nein","Unsicher"]},
  "kinderbetreuungsgeld":{q:"Ist eines deiner Kinder noch im Kleinkindalter?",opts:["Ja","Nein","Unsicher"]},
- "pendlerpauschale":{q:"Wie weit ist dein üblicher Arbeitsweg (einfache Strecke)?",opts:["Unter 2 km","2 bis 19 km","20 bis 39 km","40 km oder mehr","Unsicher"]},
+ "pendlerpauschale":{q:"Was ergibt dein Arbeitsweg laut offiziellem Pendlerrechner?",opts:["Unter 2 km","2 bis unter 20 km","20 bis unter 40 km","40 km oder mehr","Unsicher"]},
  "noe-wohnzuschuss-wohnbeihilfe":{q:"Wohnst du in einer geförderten Wohnung in Niederösterreich?",opts:["Ja","Nein","Unsicher"]},
  "alleinverdienerabsetzbetrag":{q:"Hat deine Partnerperson nur geringe Einkünfte?",opts:["Ja","Nein","Unsicher"]},
  "alleinerzieherabsetzbetrag":{q:"Lebst du seit mehr als sechs Monaten ohne Partnerperson im Haushalt?",opts:["Ja","Nein","Unsicher"]},
@@ -60,14 +60,28 @@ function matchBenefit(v){
  };
  return {show:true,followup:followups[slug]||null};
 }
+function assessment(slug,a){
+ if(a===undefined)return {level:"offen",reason:"Zusatzangabe fehlt. Voraussetzungen nicht vollständig geprüft."};
+ if(slug==="pendlerpauschale"){
+  if(a===0)return {level:"eher nicht",reason:"Bei weniger als 2 km besteht grundsätzlich kein Pendlerpauschale. Maßgeblich ist die Ermittlung mit dem offiziellen Pendlerrechner."};
+  if(a===1)return {level:"weitere Prüfung",reason:"Bei 2 bis unter 20 km kommt nur das große Pendlerpauschale in Betracht, wenn öffentliche Verkehrsmittel nicht zumutbar sind. Der Pendlerrechner ist maßgeblich."};
+  return {level:"weitere Prüfung",reason:"Entfernung allein reicht nicht: Zumutbarkeit, tatsächliche Pendeltage und mögliche Arbeitgeberleistungen sind noch zu prüfen."};
+ }
+ if(slug==="familienbeihilfe"){
+  if(a===0)return {level:"bereits bezogen",reason:"Du gibst an, die Familienbeihilfe zu beziehen. Prüfe Höhe und Kinderangaben; keine erneute Antragsempfehlung."};
+  return {level:"weitere Prüfung",reason:"Entscheidend sind insbesondere Lebensmittelpunkt, Haushalt beziehungsweise Unterhalt, Aufenthalt des Kindes und bei Volljährigen weitere Bedingungen."};
+ }
+ if(slug==="familienbonus-plus"){
+  if(a===1)return {level:"eher nicht",reason:"Ohne anrechenbare Einkommensteuer kann der Familienbonus Plus grundsätzlich keine steuerliche Entlastung bewirken. Familienbeihilfebezug und Steuerjahr sind ebenfalls zu prüfen."};
+  return {level:"weitere Prüfung",reason:"Familienbeihilfebezug, Steuerjahr, Steuerlast und gegebenenfalls Aufteilung zwischen Eltern müssen geprüft werden."};
+ }
+ if(slug==="noe-wohnzuschuss-wohnbeihilfe"&&a===1)return {level:"eher nicht",reason:"Du hast angegeben, nicht in einer geförderten Wohnung zu wohnen. Diese spezielle Förderung setzt grundsätzlich eine passende geförderte Wohnform voraus."};
+ if(slug==="alleinerzieherabsetzbetrag"&&a===1)return {level:"eher nicht",reason:"Die angegebene Partnersituation könnte der Voraussetzung widersprechen; entscheidend sind mehr als sechs Monate im betreffenden Kalenderjahr und weitere steuerliche Kriterien."};
+ return {level:"weitere Prüfung",reason:"Diese Antwort reicht noch nicht für eine belastbare Anspruchsentscheidung. Weitere gesetzliche Kriterien müssen geprüft werden."};
+}
 function assessmentHtml(slug,a){
- if(a===undefined)return '<p class="fine">Status: Zusatzangabe offen · keine Anspruchsprüfung</p>';
- if(slug==="pendlerpauschale"&&a===0)return '<p class="fine">Status: Entfernung unter 2 km angegeben. Ob Sonderfälle vorliegen, ist nicht geprüft.</p>';
- if(slug==="pendlerpauschale"&&a===1)return '<p class="fine">Status: Unter 20 km. Für das kleine Pendlerpauschale ist grundsätzlich eine höhere Entfernung erforderlich; die Zumutbarkeit öffentlicher Verkehrsmittel wurde nicht geprüft.</p>';
- if(slug==="noe-wohnzuschuss-wohnbeihilfe"&&a===1)return '<p class="fine">Status: Nicht gefördertes Objekt angegeben. Die Voraussetzungen dieses speziellen Zuschusses sind möglicherweise nicht erfüllt.</p>';
- if(slug==="alleinerzieherabsetzbetrag"&&a===1)return '<p class="fine">Status: Die angegebene Haushaltskonstellation spricht möglicherweise gegen diesen Absetzbetrag. Steuerjahr und weitere Voraussetzungen fehlen.</p>';
- if(slug==="familienbonus-plus"&&a===1)return '<p class="fine">Status: Ohne anrechenbare Einkommensteuer kann der Familienbonus nicht oder nicht vollständig wirken. Details fehlen.</p>';
- return '<p class="fine">Status: Möglicherweise relevant · weitere gesetzliche Voraussetzungen offen</p>';
+ const r=assessment(slug,a);
+ return '<p class="fine"><strong>Regelprüfung: '+esc(r.level)+'</strong> · '+esc(r.reason)+'</p>';
 }
 function catalogHtml(){
  if(catalogState==="loading")return '<div class="helperbox">Förderkatalog wird geladen …</div>';
@@ -75,10 +89,10 @@ function catalogHtml(){
  const now=new Date().toISOString().slice(0,10);
  const rows=publishedBenefits.filter(v=>v.valid_from<=now&&(!v.valid_to||v.valid_to>=now)).filter(v=>matchBenefit(v).show);
  if(!rows.length)return '<div class="helperbox">Für deine Angaben enthält unser derzeitiger Katalog keine passende Vorauswahl. Das bedeutet nicht, dass du keinen Förderanspruch hast.</div>';
- return '<h2>Deine persönliche Vorauswahl ('+rows.length+')</h2><p class="fine">Anhand deiner Antworten gefiltert – keine Anspruchszusage. Die Zusatzfragen liefern erste begründete Hinweise. Die App berechnet noch keine Ansprüche oder Beträge. Einkommen wird nur lokal im Browser verarbeitet und nicht an den Server gesendet.</p>'+
+ return '<h2>Deine persönliche Vorauswahl ('+rows.length+')</h2><p class="fine">Anhand deiner Antworten gefiltert – keine Anspruchszusage. Die regelbasierte Ersteinschätzung ist unverbindlich und nicht vollständig. Sie berechnet keine Ansprüche oder Beträge. Deine Antworten bleiben im Browser.</p>'+
  rows.map(v=>{
   const slug=v.benefits?.slug||"", m=matchBenefit(v), a=followupAnswers[slug];
-  const follow=m.followup?'<div class="helperbox"><strong>'+esc(m.followup.q)+'</strong>'+m.followup.opts.map((o,i)=>'<button class="option '+(a===i?'selected':'')+'" data-follow="'+esc(slug)+'" data-answer="'+i+'" aria-pressed="'+(a===i)+'">'+esc(o)+'</button>').join('')+(a===undefined?'<p class="fine">Noch offen – weitere Angaben erforderlich.</p>':a===1?'<p class="fine">Deine Antwort kann die Fördermöglichkeit einschränken. Bitte die offiziellen Voraussetzungen prüfen.</p>':'<p class="fine">Antwort notiert. Für eine verlässliche Beurteilung fehlen weitere Angaben.</p>')+assessmentHtml(slug,a)+'</div>':'<p class="fine">Weitere Voraussetzungen müssen noch geprüft werden.</p>';
+  const follow=m.followup?'<div class="helperbox"><strong>'+esc(m.followup.q)+'</strong>'+m.followup.opts.map((o,i)=>'<button class="option '+(a===i?'selected':'')+'" data-follow="'+esc(slug)+'" data-answer="'+i+'" aria-pressed="'+(a===i)+'">'+esc(o)+'</button>').join('')+(a===undefined?'<p class="fine">Noch offen – weitere Angaben erforderlich.</p>':a===1?'<p class="fine">Deine Antwort kann die Fördermöglichkeit einschränken. Bitte die offiziellen Voraussetzungen prüfen.</p>':'<p class="fine">Antwort erfasst – Regelprüfung siehe unten.</p>')+assessmentHtml(slug,a)+'</div>':'<p class="fine">Weitere Voraussetzungen müssen noch geprüft werden.</p>';
   return '<div class="result"><strong>'+esc(v.benefits?.title||"Förderung")+'</strong><p>'+esc(v.summary)+'</p>'+follow+'<p class="fine">Katalogzeitraum: '+esc(v.valid_from)+(v.valid_to?' bis '+esc(v.valid_to):'')+'</p>'+((v.benefit_sources||[]).map(q=>'<p><a target="_blank" rel="noopener noreferrer" href="'+esc(q.official_url)+'">'+esc(q.source_title)+'</a></p><p>'+sourceStatusHtml(q.official_url)+'</p>').join(''))+'</div>';
  }).join('');
 }
