@@ -20,3 +20,16 @@ Förderregeln anhand amtlicher Quellen prüfen; Zugriffskontrollen/RLS testen; D
 2. Regelwerk für Familienförderungen verifizieren
 3. Erklär-Assistent und Sprachbedienung integrieren
 4. Geschützte Antragsvorbereitung und Bezahlung ergänzen
+
+## Geschäftsmodell (festgelegt 2026-10-21)
+- Kostenloser grundlegender Fördercheck.
+- Einmalige PayPal-Zahlung für einen Premium-Förderbericht; **kein Abonnement**.
+- Preis noch offen. PayPal-Checkout noch nicht implementiert.
+- Zahlungsfreischaltung ausschließlich nach serverseitiger PayPal-Bestätigung, niemals allein anhand eines Browser-Redirects.
+
+## Förderdatenbank
+- Supabase-Projekt `foerder-app` mit versionierten Förderungen, amtlichen Quellen und RLS.
+- Erste fünf Informationsdatensätze am 2026-10-21 geprüft und gespeichert.
+- Die Startdaten sind kein vollständiger österreichweiter Katalog und keine individuelle Anspruchszusage.
+- Bei AMS und NÖ Wohnzuschuss ist `valid_from` zunächst das Quellen-Veröffentlichungsdatum, **nicht** der rechtliche Beginn der Förderregel; vor präziser historischer Anspruchsprüfung ist das zu korrigieren.
+- Automatische Quellenüberwachung und fachlicher Freigabeprozess noch umzusetzen.
