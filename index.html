@@ -108,7 +108,7 @@ function catalogHtml(){
  rows.map(v=>{
   const slug=v.benefits?.slug||"", m=matchBenefit(v), a=followupAnswers[slug];
   const follow=m.followup?'<div class="helperbox"><strong>'+esc(m.followup.q)+'</strong>'+m.followup.opts.map((o,i)=>'<button class="option '+(a===i?'selected':'')+'" data-follow="'+esc(slug)+'" data-answer="'+i+'" aria-pressed="'+(a===i)+'">'+esc(o)+'</button>').join('')+(a===undefined?'<p class="fine">Noch offen – weitere Angaben erforderlich.</p>':'<p class="fine">Antwort erfasst – Regelprüfung siehe unten.</p>')+assessmentHtml(slug,a)+'</div>':'<p class="fine">Weitere Voraussetzungen müssen noch geprüft werden.</p>';
-  return '<div class="result"><strong>'+esc(v.benefits?.title||"Förderung")+'</strong><p>'+esc(v.summary)+'</p>'+follow+'<p class="fine">Katalogzeitraum: '+esc(v.valid_from)+(v.valid_to?' bis '+esc(v.valid_to):'')+'</p>'+((v.benefit_sources||[]).map(q=>'<p><a target="_blank" rel="noopener noreferrer" href="'+esc(q.official_url)+'">'+esc(q.source_title)+'</a></p><p>'+sourceStatusHtml(q.official_url)+'</p>').join(''))+'</div>';
+  return '<div class="result"><strong>'+esc(v.benefits?.title||"Förderung")+'</strong><p>'+esc(v.summary)+'</p>'+follow+'<p class="fine">Katalogzeitraum: '+esc(v.valid_from)+(v.valid_to?' bis '+esc(v.valid_to):'')+'</p>'+((v.benefit_sources||[]).map(q=>'<p><a target="_blank" rel="noopener noreferrer" href="'+esc(q.official_url)+'">'+esc(q.source_title)+'</a></p><p>'+sourceStatusHtml(q.official_url)+'</p>').join(''))+applicationGuideHtml(slug)+'</div>';
  }).join('');
 }
 function wireFollowups(){el.querySelectorAll("[data-follow]").forEach(b=>b.onclick=()=>{followupAnswers[b.dataset.follow]=Number(b.dataset.answer);render()})}
