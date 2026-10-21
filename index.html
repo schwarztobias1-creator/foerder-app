@@ -25,8 +25,9 @@ let catalogState="loading";
 let sourceStatuses={};
 let sourceStatusState="loading";
 let followupAnswers={};
-let ruleGuidance={};
-async function loadRuleGuidance(){try{const r=await fetch(API+"/benefit_rule_guidance?select=slug,question,options,assessments&active=eq.true",{headers:{"apikey":PUBLIC_KEY}});if(!r.ok)return;const data=await r.json();ruleGuidance=Object.fromEntries(data.filter(x=>Array.isArray(x.options)&&x.options.length>0&&x.assessments&&typeof x.assessments==="object").map(x=>[x.slug,x]));if(step===questions.length)render()}catch(e){console.warn("Regelhinweise vorübergehend nicht verfügbar",e)}}
+let ruleGuidance=[];
+function activeGuidance(slug){const year=[2026,2025,2027,null][answers[0]];return year?ruleGuidance.find(x=>x.slug===slug&&x.tax_year===year)||null:null;}
+async function loadRuleGuidance(){try{const r=await fetch(API+"/benefit_rule_guidance?select=slug,tax_year,question,options,assessments,official_source_url&active=eq.true",{headers:{"apikey":PUBLIC_KEY}});if(!r.ok)return;const data=await r.json();ruleGuidance=data.filter(x=>Array.isArray(x.options)&&x.options.length>0&&x.assessments&&typeof x.assessments==="object");if(step===questions.length)render()}catch(e){console.warn("Regelhinweise vorübergehend nicht verfügbar",e)}}
 async function loadSourceStatuses(){try{const r=await fetch(API+"/rpc/published_source_status",{method:"POST",headers:{"apikey":PUBLIC_KEY,"Content-Type":"application/json"},body:"{}"});if(!r.ok)throw Error("HTTP "+r.status);const rows=await r.json();sourceStatuses=Object.fromEntries(rows.map(x=>[x.official_url,x]));sourceStatusState="ready";if(step===questions.length)render();}catch(e){sourceStatusState="error";console.warn("Prüfstatus nicht verfügbar",e);if(step===questions.length)render()}}
 function sourceStatusHtml(url){const s=sourceStatuses[url];if(sourceStatusState!=="ready"||!s||!s.last_checked_at)return '<span class="fine">Quellenprüfung noch nicht bestätigt</span>';const d=new Date(s.last_checked_at);const date=isNaN(d.getTime())?"Datum unbekannt":d.toLocaleDateString("de-AT",{day:"2-digit",month:"2-digit",year:"numeric"});return '<span class="fine">'+(s.needs_review?"⚠️ Quellenänderung erkannt – fachliche Prüfung ausständig":s.last_result==="unavailable"?"⚠️ Quelle zuletzt nicht erreichbar":s.last_result==="changed"?"⚠️ Änderung erkannt": "✓ Quelle technisch abgerufen")+ " · "+esc(date)+"</span>"}
 async function loadCatalog(){try{const r=await fetch(API+"/benefit_versions?select=id,valid_from,valid_to,summary,benefits(slug,title,category,jurisdiction),benefit_sources(official_url,source_title)&status=eq.published&order=valid_from.desc",{headers:{"apikey":PUBLIC_KEY}});if(!r.ok)throw Error("HTTP "+r.status);publishedBenefits=await r.json();catalogState="ready";if(step===questions.length)render();}catch(e){publishedBenefits=[];catalogState="error";if(step===questions.length)render();console.warn("Förderkatalog derzeit nicht verfügbar",e)}}
@@ -62,11 +63,11 @@ function matchBenefit(v){
  "alleinerzieherabsetzbetrag":{q:"Lebst du seit mehr als sechs Monaten ohne Partnerperson im Haushalt?",opts:["Ja","Nein","Unsicher"]},
  "ams-kinderbetreuungsbeihilfe":{q:"Brauchst du Unterstützung bei den Kinderbetreuungskosten für Arbeit oder Ausbildung?",opts:["Ja","Nein","Unsicher"]}
  };
- const remote=ruleGuidance[slug];
+ const remote=activeGuidance(slug);
  return {show:true,followup:remote?{q:remote.question,opts:remote.options}:followups[slug]||null};
 }
 function assessment(slug,a){
- const remote=ruleGuidance[slug];
+ const remote=activeGuidance(slug);
  if(remote&&a!==undefined&&remote.assessments&&remote.assessments[String(a)])return remote.assessments[String(a)];
  if(a===undefined)return {level:"offen",reason:"Zusatzangabe fehlt. Voraussetzungen nicht vollständig geprüft."};
  if(slug==="familienbeihilfe"){
