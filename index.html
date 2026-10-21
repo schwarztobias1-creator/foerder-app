@@ -8,13 +8,13 @@
 const questions=[
 {title:"Wo wohnst du?",help:"Das Bundesland entscheidet mit, welche regionalen Familienförderungen wir später prüfen.",options:["Niederösterreich","Wien","Steiermark","Anderes Bundesland"]},
 {title:"Wie viele Kinder hast du?",help:"Wir fragen nach Kindern, weil viele Leistungen von Anzahl und Alter abhängen.",options:["Keine","1 Kind","2 Kinder","3 oder mehr"]},
-{title:"Wie alt sind deine Kinder?",help:"Das Alter beeinflusst beispielsweise Familienbeihilfe und Familienbonus. Für diese Demo reicht eine grobe Angabe.",options:["Alle unter 18","Mindestens eines über 18","Weiß ich nicht","Keine Kinder"]},
+{title:"Wie alt sind deine Kinder?",help:"Das Alter beeinflusst beispielsweise Familienbeihilfe und Familienbonus. Für diese Demo reicht eine grobe Angabe.",options:["Alle unter 18 Jahren","Mindestens ein Kind ist 18 oder älter","Unterschiedliche Altersgruppen","Keine Kinder"]},
 {title:"Wie ist deine Arbeitssituation?",help:"Damit können wir später steuerliche Förderungen und mögliche Unterstützungen passend auswählen.",options:["Angestellt","Selbstständig","In Karenz","Arbeitslos","Andere Situation"]},
 {title:"Lebst du mit einer Partnerperson zusammen?",help:"Manche steuerlichen Absetzbeträge hängen auch von der Lebens- und Einkommenssituation deiner Partnerperson ab.",options:["Ja","Nein","Möchte ich nicht angeben"]},
-{title:"Wurde der Familienbonus Plus schon beantragt?",help:"Der Familienbonus Plus ist eine Steuerentlastung, keine automatische Auszahlung. Ob und wie viel möglich ist, hängt unter anderem von Steuerjahr und Einkommensteuer ab.",options:["Ja","Nein","Weiß ich nicht"]},
+{title:"Wurde der Familienbonus Plus schon beantragt?",help:"Der Familienbonus Plus ist eine Steuerentlastung, keine automatische Auszahlung. Ob und wie viel möglich ist, hängt unter anderem von Steuerjahr und Einkommensteuer ab.",options:["Ja, bereits beantragt","Nein, noch nicht beantragt","Ich bin mir nicht sicher"]},
 {title:"Wie wohnst du derzeit?",help:"Einige Förderungen setzen eine bestimmte Wohnform oder ein gefördertes Objekt voraus.",options:["Miete","Eigentumswohnung","Eigenes Haus","Bei Familie / andere Wohnform","Möchte ich nicht angeben"]},
 {title:"Wie hoch ist dein ungefähres monatliches Haushaltsnettoeinkommen?",help:"Nur eine grobe freiwillige Einordnung. Haushaltsgröße und förderrechtliche Einkommensdefinitionen können abweichen.",options:["Unter 1.500 €","1.500–2.499 €","2.500–3.499 €","3.500–4.999 €","5.000 € oder mehr","Möchte ich nicht angeben"]},
-{title:"Wie alt ist dein jüngstes Kind?",help:"Für Leistungen rund um Geburt und Kinderbetreuung ist das Alter wichtig. Diese grobe Angabe allein reicht für keine Anspruchsprüfung.",options:["Unter 1 Jahr","1 bis unter 3 Jahre","3 bis unter 6 Jahre","6 bis unter 18 Jahre","18 Jahre oder älter","Keine Kinder / keine Angabe"]}
+{title:"Wie alt ist dein jüngstes Kind?",help:"Für Leistungen rund um Geburt und Kinderbetreuung ist das Alter wichtig. Diese grobe Angabe allein reicht für keine Anspruchsprüfung.",options:["Unter 1 Jahr","1 bis unter 3 Jahre","3 bis unter 6 Jahre","6 bis unter 18 Jahre","18 Jahre oder älter","Keine Kinder"]}
 ];
 let step=-1,answers=[],helpOpen=false,voice=false;
 const API="https://dihnhlkdpblwtuyomvuh.supabase.co/rest/v1";
@@ -33,9 +33,9 @@ const el=document.getElementById("screen"),bar=document.getElementById("bar");
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 function speak(t){if(!("speechSynthesis" in window)){alert("Vorlesen wird von diesem Browser nicht unterstützt.");return;}speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang="de-AT";u.rate=.9;speechSynthesis.speak(u)}
 function listen(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){alert("Spracheingabe ist in diesem Browser nicht verfügbar. Bitte tippe auf eine Antwort.");return;}const r=new SR();r.lang="de-AT";r.onresult=e=>{const t=e.results[0][0].transcript.toLowerCase();const i=questions[step].options.findIndex(x=>t.includes(x.toLowerCase())||x.toLowerCase().includes(t));if(i>=0)select(i);else alert("Nicht eindeutig erkannt. Bitte wähle eine Antwort aus.")};r.start()}
-function select(i){answers[step]=i;render()}
-function next(){if(step<questions.length-1){step++;helpOpen=false;render()}else{step=questions.length;render()}}
-function back(){step=Math.max(-1,step-1);helpOpen=false;render()}
+function select(i){answers[step]=i;if(step===1&&i===0){answers[2]=3;answers[8]=5}else if(step===1&&i!==0){if(answers[2]===3)delete answers[2];if(answers[8]===5)delete answers[8]}render()}
+function next(){if(step<questions.length-1){step++;if(answers[1]===0&&(step===2||step===8)){if(step===2)step=3;else step=questions.length}helpOpen=false;render()}else{step=questions.length;render()}}
+function back(){step=Math.max(-1,step-1);if(answers[1]===0&&(step===2||step===8))step=step===8?7:1;helpOpen=false;render()}
 function matchBenefit(v){
  const slug=v.benefits?.slug||"";
  const kids=answers[1]!==0, noe=answers[0]===0, partner=answers[4]===0;
