@@ -21,6 +21,9 @@ let step=-1,answers=[],helpOpen=false,voice=false;
 const API="https://dihnhlkdpblwtuyomvuh.supabase.co/rest/v1";
 const PUBLIC_KEY="sb_publishable_TJCgL8iPQCNKUk3mT4jMEw_PBZ5UfhM";
 let publishedBenefits=[];
+let applicationGuides=[];
+async function loadApplicationGuides(){try{const r=await fetch(API+"/benefit_application_guides?select=benefit_slug,tax_year,title,procedure_type,official_url,steps,required_documents&status=eq.published",{headers:{"apikey":PUBLIC_KEY}});if(!r.ok)return;applicationGuides=await r.json();if(step===questions.length)render()}catch(e){console.warn("Antragsinformationen nicht verfügbar",e)}}
+function applicationGuideHtml(slug){const year=[2026,2025,2027,null][answers[0]];const g=applicationGuides.find(x=>x.benefit_slug===slug&&(x.tax_year===null||x.tax_year===year));if(!g)return '<p class="fine">Antragsassistent in Vorbereitung · noch keine geprüfte Anleitung verfügbar.</p>';return '<div class="helperbox"><strong>Antrag: '+esc(g.title)+'</strong><p><a target="_blank" rel="noopener noreferrer" href="'+esc(g.official_url)+'">Offizielle Antragsseite öffnen ↗</a></p>'+(g.steps||[]).map((x,i)=>'<p>'+(i+1)+'. '+esc(x)+'</p>').join("")+(g.required_documents?.length?'<p class="fine">Benötigte Unterlagen: '+esc(g.required_documents.join(", "))+'</p>':"")+'</div>'}
 let catalogState="loading";
 let sourceStatuses={};
 let sourceStatusState="loading";
@@ -34,6 +37,7 @@ async function loadCatalog(){try{const r=await fetch(API+"/benefit_versions?sele
 loadCatalog();
 loadSourceStatuses();
 loadRuleGuidance();
+loadApplicationGuides();
 const el=document.getElementById("screen"),bar=document.getElementById("bar");
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 function speak(t){if(!("speechSynthesis" in window)){alert("Vorlesen wird von diesem Browser nicht unterstützt.");return;}speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang="de-AT";u.rate=.9;speechSynthesis.speak(u)}
