@@ -11,7 +11,10 @@ const questions=[
 {title:"Wie alt sind deine Kinder?",help:"Das Alter beeinflusst beispielsweise Familienbeihilfe und Familienbonus. Für diese Demo reicht eine grobe Angabe.",options:["Alle unter 18","Mindestens eines über 18","Weiß ich nicht","Keine Kinder"]},
 {title:"Wie ist deine Arbeitssituation?",help:"Damit können wir später steuerliche Förderungen und mögliche Unterstützungen passend auswählen.",options:["Angestellt","Selbstständig","In Karenz","Arbeitslos","Andere Situation"]},
 {title:"Lebst du mit einer Partnerperson zusammen?",help:"Manche steuerlichen Absetzbeträge hängen auch von der Lebens- und Einkommenssituation deiner Partnerperson ab.",options:["Ja","Nein","Möchte ich nicht angeben"]},
-{title:"Wurde der Familienbonus Plus schon beantragt?",help:"Der Familienbonus Plus ist eine Steuerentlastung, keine automatische Auszahlung. Ob und wie viel möglich ist, hängt unter anderem von Steuerjahr und Einkommensteuer ab.",options:["Ja","Nein","Weiß ich nicht"]}
+{title:"Wurde der Familienbonus Plus schon beantragt?",help:"Der Familienbonus Plus ist eine Steuerentlastung, keine automatische Auszahlung. Ob und wie viel möglich ist, hängt unter anderem von Steuerjahr und Einkommensteuer ab.",options:["Ja","Nein","Weiß ich nicht"]},
+{title:"Wie wohnst du derzeit?",help:"Einige Förderungen setzen eine bestimmte Wohnform oder ein gefördertes Objekt voraus.",options:["Miete","Eigentumswohnung","Eigenes Haus","Bei Familie / andere Wohnform","Möchte ich nicht angeben"]},
+{title:"Wie hoch ist dein ungefähres monatliches Haushaltsnettoeinkommen?",help:"Nur eine grobe freiwillige Einordnung. Haushaltsgröße und förderrechtliche Einkommensdefinitionen können abweichen.",options:["Unter 1.500 €","1.500–2.499 €","2.500–3.499 €","3.500–4.999 €","5.000 € oder mehr","Möchte ich nicht angeben"]},
+{title:"Wie alt ist dein jüngstes Kind?",help:"Für Leistungen rund um Geburt und Kinderbetreuung ist das Alter wichtig. Diese grobe Angabe allein reicht für keine Anspruchsprüfung.",options:["Unter 1 Jahr","1 bis unter 3 Jahre","3 bis unter 6 Jahre","6 bis unter 18 Jahre","18 Jahre oder älter","Keine Kinder / keine Angabe"]}
 ];
 let step=-1,answers=[],helpOpen=false,voice=false;
 const API="https://dihnhlkdpblwtuyomvuh.supabase.co/rest/v1";
@@ -37,11 +40,13 @@ function matchBenefit(v){
  const slug=v.benefits?.slug||"";
  const kids=answers[1]!==0, noe=answers[0]===0, partner=answers[4]===0;
  const jobs=[0,1].includes(answers[3]);
+ const housing=answers[6], youngest=answers[8];
  if(["familienbeihilfe","kinderabsetzbetrag","familienbonus-plus","kinderbetreuungsgeld","alleinverdienerabsetzbetrag","alleinerzieherabsetzbetrag","ams-kinderbetreuungsbeihilfe"].includes(slug)&&!kids)return {show:false};
  if(slug==="noe-wohnzuschuss-wohnbeihilfe"&&!noe)return {show:false};
  if(slug==="alleinverdienerabsetzbetrag"&&!partner)return {show:false};
  if(slug==="alleinerzieherabsetzbetrag"&&partner)return {show:false};
  if(slug==="pendlerpauschale"&&!jobs)return {show:false};
+ if(slug==="kinderbetreuungsgeld"&&youngest>=3&&youngest<=4)return {show:false};
  if(slug==="ams-kinderbetreuungsbeihilfe"&&answers[3]!==3&&answers[3]!==2)return {show:false};
  const followups={
  "familienbeihilfe":{q:"Erhältst du bereits Familienbeihilfe für deine Kinder?",opts:["Ja","Nein","Unsicher"]},
@@ -55,16 +60,25 @@ function matchBenefit(v){
  };
  return {show:true,followup:followups[slug]||null};
 }
+function assessmentHtml(slug,a){
+ if(a===undefined)return '<p class="fine">Status: Zusatzangabe offen · keine Anspruchsprüfung</p>';
+ if(slug==="pendlerpauschale"&&a===0)return '<p class="fine">Status: Entfernung unter 2 km angegeben. Ob Sonderfälle vorliegen, ist nicht geprüft.</p>';
+ if(slug==="pendlerpauschale"&&a===1)return '<p class="fine">Status: Unter 20 km. Für das kleine Pendlerpauschale ist grundsätzlich eine höhere Entfernung erforderlich; die Zumutbarkeit öffentlicher Verkehrsmittel wurde nicht geprüft.</p>';
+ if(slug==="noe-wohnzuschuss-wohnbeihilfe"&&a===1)return '<p class="fine">Status: Nicht gefördertes Objekt angegeben. Die Voraussetzungen dieses speziellen Zuschusses sind möglicherweise nicht erfüllt.</p>';
+ if(slug==="alleinerzieherabsetzbetrag"&&a===1)return '<p class="fine">Status: Die angegebene Haushaltskonstellation spricht möglicherweise gegen diesen Absetzbetrag. Steuerjahr und weitere Voraussetzungen fehlen.</p>';
+ if(slug==="familienbonus-plus"&&a===1)return '<p class="fine">Status: Ohne anrechenbare Einkommensteuer kann der Familienbonus nicht oder nicht vollständig wirken. Details fehlen.</p>';
+ return '<p class="fine">Status: Möglicherweise relevant · weitere gesetzliche Voraussetzungen offen</p>';
+}
 function catalogHtml(){
  if(catalogState==="loading")return '<div class="helperbox">Förderkatalog wird geladen …</div>';
  if(catalogState==="error")return '<div class="helperbox">Der Förderkatalog ist derzeit nicht erreichbar. Eine individuelle Vorauswahl ist gerade nicht möglich.</div>';
  const now=new Date().toISOString().slice(0,10);
  const rows=publishedBenefits.filter(v=>v.valid_from<=now&&(!v.valid_to||v.valid_to>=now)).filter(v=>matchBenefit(v).show);
  if(!rows.length)return '<div class="helperbox">Für deine Angaben enthält unser derzeitiger Katalog keine passende Vorauswahl. Das bedeutet nicht, dass du keinen Förderanspruch hast.</div>';
- return '<h2>Deine persönliche Vorauswahl ('+rows.length+')</h2><p class="fine">Anhand deiner Antworten gefiltert – keine Anspruchszusage. Die Zusatzfragen helfen bei der weiteren Eingrenzung. Förderbeträge und Regeln sind nicht abschließend fachlich geprüft.</p>'+
+ return '<h2>Deine persönliche Vorauswahl ('+rows.length+')</h2><p class="fine">Anhand deiner Antworten gefiltert – keine Anspruchszusage. Die Zusatzfragen liefern erste begründete Hinweise. Die App berechnet noch keine Ansprüche oder Beträge. Einkommen wird nur lokal im Browser verarbeitet und nicht an den Server gesendet.</p>'+
  rows.map(v=>{
   const slug=v.benefits?.slug||"", m=matchBenefit(v), a=followupAnswers[slug];
-  const follow=m.followup?'<div class="helperbox"><strong>'+esc(m.followup.q)+'</strong>'+m.followup.opts.map((o,i)=>'<button class="option '+(a===i?'selected':'')+'" data-follow="'+esc(slug)+'" data-answer="'+i+'" aria-pressed="'+(a===i)+'">'+esc(o)+'</button>').join('')+(a===undefined?'<p class="fine">Noch offen – weitere Angaben erforderlich.</p>':a===1?'<p class="fine">Deine Antwort kann die Fördermöglichkeit einschränken. Bitte die offiziellen Voraussetzungen prüfen.</p>':'<p class="fine">Antwort notiert. Für eine verlässliche Beurteilung fehlen weitere Angaben.</p>')+'</div>':'<p class="fine">Weitere Voraussetzungen müssen noch geprüft werden.</p>';
+  const follow=m.followup?'<div class="helperbox"><strong>'+esc(m.followup.q)+'</strong>'+m.followup.opts.map((o,i)=>'<button class="option '+(a===i?'selected':'')+'" data-follow="'+esc(slug)+'" data-answer="'+i+'" aria-pressed="'+(a===i)+'">'+esc(o)+'</button>').join('')+(a===undefined?'<p class="fine">Noch offen – weitere Angaben erforderlich.</p>':a===1?'<p class="fine">Deine Antwort kann die Fördermöglichkeit einschränken. Bitte die offiziellen Voraussetzungen prüfen.</p>':'<p class="fine">Antwort notiert. Für eine verlässliche Beurteilung fehlen weitere Angaben.</p>')+assessmentHtml(slug,a)+'</div>':'<p class="fine">Weitere Voraussetzungen müssen noch geprüft werden.</p>';
   return '<div class="result"><strong>'+esc(v.benefits?.title||"Förderung")+'</strong><p>'+esc(v.summary)+'</p>'+follow+'<p class="fine">Katalogzeitraum: '+esc(v.valid_from)+(v.valid_to?' bis '+esc(v.valid_to):'')+'</p>'+((v.benefit_sources||[]).map(q=>'<p><a target="_blank" rel="noopener noreferrer" href="'+esc(q.official_url)+'">'+esc(q.source_title)+'</a></p><p>'+sourceStatusHtml(q.official_url)+'</p>').join(''))+'</div>';
  }).join('');
 }
@@ -73,7 +87,7 @@ function wireFollowups(){el.querySelectorAll("[data-follow]").forEach(b=>b.oncli
 window.startFoerderCheck=()=>{step=0;render()};
 function render(){bar.style.width=(step<0?0:step>=questions.length?100:Math.round((step+1)/questions.length*100))+"%";
 if(step===-1){el.innerHTML='<div class="eyebrow">Dein Geld. Deine Möglichkeiten.</div><h1>Welche Förderungen stehen dir zu?</h1><p>Finde mit wenigen einfachen Fragen heraus, welche Familienleistungen du genauer prüfen solltest.</p><div class="helperbox">🔒 Dieser erste Prototyp speichert nichts und verwendet noch keine echten Förderberechnungen.</div><button class="primary" id="start">Kostenlosen Check starten →</button><div class="actions"><button class="secondary" id="read">🔊 Vorlesen</button></div>';document.getElementById("start").onclick=next;document.getElementById("read").onclick=()=>speak("Welche Förderungen stehen dir zu? Finde es mit wenigen Fragen heraus.");return}
-if(step===questions.length){el.innerHTML='<div class="eyebrow">Dein erster Überblick</div><h1>Förderungen, die du prüfen solltest</h1><p>Wir zeigen dir nur Katalogeinträge, die nach deinen bisherigen Angaben relevant sein könnten. Deine Antworten werden nicht gespeichert.</p>'+catalogHtml()+'<div class="helperbox">Die Auswahl ist eine unverbindliche Orientierung. Eine individuelle Berechnung oder rechtsverbindliche Anspruchsprüfung findet noch nicht statt.</div><button class="primary" id="restart">Erneut prüfen</button>';wireFollowups();document.getElementById("restart").onclick=()=>{step=-1;answers=[];followupAnswers={};render()};return}
+if(step===questions.length){el.innerHTML='<div class="eyebrow">Dein erster Überblick</div><h1>Förderungen, die du prüfen solltest</h1><p>Wir zeigen dir nur Katalogeinträge, die nach deinen bisherigen Angaben relevant sein könnten. Deine Antworten werden nicht gespeichert.</p>'+catalogHtml()+'<div class="helperbox">Die Auswahl ist eine unverbindliche Orientierung. Eine individuelle Berechnung oder rechtsverbindliche Anspruchsprüfung findet noch nicht statt. Auch ein ausgeblendeter Katalogeintrag kann im Einzelfall relevant sein.</div><button class="primary" id="restart">Erneut prüfen</button>';wireFollowups();document.getElementById("restart").onclick=()=>{step=-1;answers=[];followupAnswers={};render()};return}
 const q=questions[step];el.innerHTML='<div class="eyebrow">Frage '+(step+1)+' von '+questions.length+'</div><h1>'+esc(q.title)+'</h1><p>Wähle einfach die passende Antwort.</p><div id="options">'+q.options.map((o,i)=>'<button class="option '+(answers[step]===i?'selected':'')+'" data-i="'+i+'" aria-pressed="'+(answers[step]===i)+'">'+esc(o)+'</button>').join("")+'</div><div class="actions"><button class="secondary" id="back">← Zurück</button><button class="secondary" id="read">🔊 Vorlesen</button><button class="secondary" id="mic">🎙 Antworten</button></div><div class="helper"><button class="secondary" id="help">✨ Frage erklären</button>'+(helpOpen?'<div class="helperbox">'+esc(q.help)+'<p class="fine">Noch kein KI-Chat: Diese Erklärung ist ein sicherer Demo-Text.</p></div>':'')+'</div><button class="primary" id="next" '+(answers[step]===undefined?'disabled':'')+'>Weiter →</button>';
 el.querySelectorAll("[data-i]").forEach(b=>b.onclick=()=>select(Number(b.dataset.i)));document.getElementById("back").onclick=back;document.getElementById("read").onclick=()=>speak(q.title+". "+q.options.join(". "));document.getElementById("mic").onclick=listen;document.getElementById("help").onclick=()=>{helpOpen=!helpOpen;render()};document.getElementById("next").onclick=next}
 try{render()}catch(error){console.error("Förderfinder Startfehler",error);document.getElementById("screen").insertAdjacentHTML("beforeend",'<p class="fine">Die interaktive Funktion konnte nicht gestartet werden. Bitte die Seite neu laden.</p>')}
