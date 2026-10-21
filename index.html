@@ -15,7 +15,8 @@ const questions=[
 {title:"Wurde der Familienbonus Plus schon beantragt?",help:"Der Familienbonus Plus ist eine Steuerentlastung, keine automatische Auszahlung. Ob und wie viel möglich ist, hängt unter anderem von Steuerjahr und Einkommensteuer ab.",options:["Ja, bereits beantragt","Nein, noch nicht beantragt","Ich bin mir nicht sicher"]},
 {title:"Wie wohnst du derzeit?",help:"Einige Förderungen setzen eine bestimmte Wohnform oder ein gefördertes Objekt voraus.",options:["Miete","Eigentumswohnung","Eigenes Haus","Bei Familie / andere Wohnform","Möchte ich nicht angeben"]},
 {title:"Wie hoch ist dein ungefähres monatliches Haushaltsnettoeinkommen?",help:"Nur eine grobe freiwillige Einordnung. Haushaltsgröße und förderrechtliche Einkommensdefinitionen können abweichen.",options:["Unter 1.500 €","1.500–2.499 €","2.500–3.499 €","3.500–4.999 €","5.000 € oder mehr","Möchte ich nicht angeben"]},
-{title:"Wie alt ist dein jüngstes Kind?",help:"Für Leistungen rund um Geburt und Kinderbetreuung ist das Alter wichtig. Diese grobe Angabe allein reicht für keine Anspruchsprüfung.",options:["Unter 1 Jahr","1 bis unter 3 Jahre","3 bis unter 6 Jahre","6 bis unter 18 Jahre","18 Jahre oder älter","Keine Kinder"]}
+{title:"Wie alt ist dein jüngstes Kind?",help:"Für Leistungen rund um Geburt und Kinderbetreuung ist das Alter wichtig. Diese grobe Angabe allein reicht für keine Anspruchsprüfung.",options:["Unter 1 Jahr","1 bis unter 3 Jahre","3 bis unter 6 Jahre","6 bis unter 18 Jahre","18 Jahre oder älter","Keine Kinder"]},
+{title:"Gibt es bei dir einen Unterstützungsbedarf wegen Behinderung oder Pflege?",help:"Diese freiwillige Frage hilft, passende Anlaufstellen zu zeigen. Es wird keine Diagnose abgefragt oder gespeichert.",options:["Ja, Behinderung oder chronische Einschränkung","Ja, Pflegebedarf bei mir oder Angehörigen","Nein","Möchte ich nicht angeben"]}
 ];
 let step=-1,answers=[],helpOpen=false,voice=false;
 const API="https://dihnhlkdpblwtuyomvuh.supabase.co/rest/v1";
@@ -116,7 +117,7 @@ function broaderSupportHtml(){
  ["Steuern & Erwerbstätigkeit","Arbeitnehmerveranlagung, Absetzbeträge und Werbungskosten prüfen","https://www.bmf.gv.at/"],
  ["Unternehmen & Gründung","Förderungen für Selbstständige und Unternehmen recherchieren","https://www.aws.at/"]
  ];
- return '<div class="helperbox"><strong>Weitere Förderbereiche entdecken</strong><p class="fine">Noch keine persönliche Anspruchsprüfung für diese Bereiche. Die Links führen zu offiziellen Einstiegspunkten.</p>'+groups.map(x=>'<p><strong>'+esc(x[0])+'</strong><span class="fine" style="display:block">'+esc(x[1])+'</span><a href="'+esc(x[2])+'" target="_blank" rel="noopener noreferrer">Offizielle Stelle öffnen ↗</a></p>').join('')+'</div>';
+ const disability=answers[10]===0||answers[10]===1;const employment=answers[4]===3;const prioritized=groups.filter(x=>(disability&&x[0]==="Behinderung & Pflege")||(employment&&x[0]==="Arbeitssuche & Weiterbildung"));const ordered=[...prioritized,...groups.filter(x=>!prioritized.includes(x))];return '<div class="helperbox"><strong>Weitere Förderbereiche entdecken</strong><p class="fine">Noch keine persönliche Anspruchsprüfung für diese Bereiche. Die Links führen zu offiziellen Einstiegspunkten.</p>'+ordered.map(x=>'<p><strong>'+esc(x[0])+'</strong><span class="fine" style="display:block">'+esc(x[1])+'</span><a href="'+esc(x[2])+'" target="_blank" rel="noopener noreferrer">Offizielle Stelle öffnen ↗</a></p>').join('')+'</div>';
 }
 function catalogHtml(){
  if(catalogState==="loading")return '<div class="helperbox">Förderkatalog wird geladen …</div>';
@@ -125,7 +126,7 @@ function catalogHtml(){
  const selectedYear=["2026","2025","2027",null][answers[0]];
  const yearNote=selectedYear?("Ausgewähltes Prüfjahr: "+selectedYear+". "):"Prüfjahr noch unklar. ";
  const rows=publishedBenefits.filter(v=>v.valid_from<=now&&(!v.valid_to||v.valid_to>=now)).filter(v=>matchBenefit(v).show);
- if(!rows.length)return '<div class="helperbox">Für deine Angaben enthält unser derzeitiger Katalog keine passende Vorauswahl. Das bedeutet nicht, dass du keinen Förderanspruch hast.</div>'+broaderSupportHtml();
+ if(!rows.length)return '<div class="helperbox">Für deine Angaben enthält unser derzeitiger Katalog keine passende Vorauswahl. Das bedeutet nicht, dass du keinen Förderanspruch hast.</div>';
  return '<h2>Deine persönliche Vorauswahl ('+rows.length+')</h2><p class="fine">'+esc(yearNote)+'Anhand deiner Antworten gefiltert – keine Anspruchszusage. Die regelbasierte Ersteinschätzung ist unverbindlich und nicht vollständig. Sie berechnet keine Ansprüche oder Beträge. Deine Antworten bleiben im Browser.</p>'+
  rows.map(v=>{
   const slug=v.benefits?.slug||"", m=matchBenefit(v), a=followupAnswers[slug];
