@@ -51,7 +51,7 @@ async function verifyAccess(){
   $("access").hidden=true;$("app").hidden=false;show("intro")
  }catch(e){
   const missing=!localStorage.getItem("foerder_premium_sandbox")&&!sessionStorage.getItem("foerder_premium_sandbox");
-  $("access").innerHTML='<h2>Die Prüfung konnte nicht abgeschlossen werden</h2><p>'+esc(e.message)+'</p>'+(missing?'<p class="note">Die Schaltfläche „Erneut versuchen“ würde ohne gespeicherten Zugang nichts ändern. Wir richten die Wiederherstellung ein. Bitte keine neue Zahlung ausführen.</p>':'<button class="primary" id="retryAccess">Erneut versuchen</button>')+'<p class="muted">Keine erneute Testzahlung erforderlich.</p>';
+  $("access").innerHTML='<h2>Die Prüfung konnte nicht abgeschlossen werden</h2><p>'+esc(e.message)+'</p>'+(missing?'<p class="note">Die Schaltfläche „Erneut versuchen“ würde ohne gespeicherten Zugang nichts ändern. Wir richten die Wiederherstellung ein. Bitte keine neue Zahlung ausführen. Du kannst bereits <a href="./anmelden.html">ein Förderfinder-Konto anlegen</a>; die Freischaltung erfolgt getrennt.</p>':'<button class="primary" id="retryAccess">Erneut versuchen</button>')+'<p class="muted">Keine erneute Testzahlung erforderlich.</p>';
   const retry=$("retryAccess");if(retry)retry.onclick=verifyAccess
  }
 }
