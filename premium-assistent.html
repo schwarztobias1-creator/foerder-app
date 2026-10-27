@@ -37,7 +37,7 @@ async function verifyAccess(){
  try{
   let access;
   try{access=JSON.parse(localStorage.getItem("foerder_premium_sandbox")||sessionStorage.getItem("foerder_premium_sandbox")||"null")}catch{throw Error("Die gespeicherten Test-Zugangsdaten sind ungültig.")}
-  if(!access?.orderId||!access?.accessToken)throw Error("Der bisherige Testzugang ist in diesem Browser nicht mehr gespeichert. Du musst nicht erneut zahlen: Wenn du die ursprüngliche Bestellnummer hast, können wir den Testkauf prüfen und den Zugang wiederherstellen.");
+  if(!access?.orderId||!access?.accessToken)throw Error("Dein früherer Testzugang ist in diesem Browser nicht gespeichert. Eine erneute Zahlung ist nicht nötig. Die sichere Wiederherstellung wird derzeit eingerichtet.");
   const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),12000);
   let r;
   try{r=await fetch(endpoint,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"report",...access}),signal:controller.signal})}
@@ -50,8 +50,9 @@ async function verifyAccess(){
   if(!$("program").options.length)throw Error("Aktuell sind keine Premium-Anleitungen verfügbar.");
   $("access").hidden=true;$("app").hidden=false;show("intro")
  }catch(e){
-  $("access").innerHTML='<h2>Die Prüfung konnte nicht abgeschlossen werden</h2><p>'+esc(e.message)+'</p><button class="primary" id="retryAccess">Erneut versuchen</button><a class="action-link" href="./premium.html">Zur PayPal-Testzahlung →</a><p class="muted">Bitte keine neue Zahlung durchführen. Falls dein früherer Testzugang nicht mehr gespeichert ist, brauchen wir die ursprüngliche Sandbox-Bestellnummer zur Wiederherstellung.</p>';
-  $("retryAccess").onclick=verifyAccess
+  const missing=!localStorage.getItem("foerder_premium_sandbox")&&!sessionStorage.getItem("foerder_premium_sandbox");
+  $("access").innerHTML='<h2>Die Prüfung konnte nicht abgeschlossen werden</h2><p>'+esc(e.message)+'</p>'+(missing?'<p class="note">Die Schaltfläche „Erneut versuchen“ würde ohne gespeicherten Zugang nichts ändern. Wir richten die Wiederherstellung ein. Bitte keine neue Zahlung ausführen.</p>':'<button class="primary" id="retryAccess">Erneut versuchen</button>')+'<p class="muted">Keine erneute Testzahlung erforderlich.</p>';
+  const retry=$("retryAccess");if(retry)retry.onclick=verifyAccess
  }
 }
 verifyAccess();
